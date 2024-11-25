@@ -1,0 +1,673 @@
+Model SysADLModel; 
+
+package SysADL.types {
+    // Tipos Básicos
+    value type Int {}
+    value type Boolean {}
+    value type String {}
+    value type Real {}
+
+    // Enumeradores
+    enum ParkingSpaceType {
+        covered, uncovered, accessible
+    }
+
+    enum IdentificationMethodType {
+        RFID, ticket
+    }
+
+    enum PaymentMethodType {
+        cash, creditCard, debitCard, pix }
+
+    enum TariffType {
+        normal, peak, accessible
+    }
+
+    enum BarrierStatus {
+        open, closed, manualOverride
+    }
+
+    
+
+    enum PaymentConfirmation {
+        confirmed, pending, declined
+    }
+
+    enum ComplianceStatus {
+        LGPD_OK, LGPD_Violation
+    }
+
+    enum UpdateImpactLevel {
+        low, medium, high
+    }
+
+    enum OperationStatus {
+        operational, faultDetected, maintenance
+    }
+
+    // Tipos Personalizados
+    datatype Date {
+        attributes:
+            year: Int; // Ano da data
+            month: Int; // Mês da data
+            day: Int; // Dia da data
+    }
+
+    datatype Time {
+        attributes:
+            hour: Int; // Hora
+            minute: Int; // Minuto
+    }
+
+    datatype ParkingSpaceInfo {
+        attributes:
+            id: String; // Identificador único da vaga
+            isAvailable: Boolean; // Indica se a vaga está disponível
+            ^type: ParkingSpaceType; // Tipo da vaga (coberta, descoberta ou acessível)
+            location: String; // Localização física da vaga no estacionamento
+            vehicleLicense: String; // Placa do veículo associado à vaga
+    }
+    
+    datatype ParkingSpaceCount {
+        attributes:
+            ^type: ParkingSpaceType; // Tipo de vaga (coberta, descoberta, acessível)
+            totalSpaces: Int; // Número total de vagas deste tipo
+            availableSpaces: Int; // Número de vagas disponíveis deste tipo
+    }
+
+    datatype CameraParkingMonitoring {
+        attributes:
+            cameraID: String; // Identificador único da câmera
+            monitoredSpaces: ParkingSpaceCount[]; // Lista de contagens monitoradas pela câmera
+            status: Boolean; // Indica se a câmera está ativa
+    }
+
+    datatype BarrierControl {
+        attributes:
+            barrierID: String; // Identificador único da cancela
+            ^status: BarrierStatus; // Estado da cancela (aberta, fechada ou manual)
+            isManualOverride: Boolean; // Indica se o controle manual está ativado
+    }
+
+    datatype VehicleRegistrationInfo {
+        attributes:
+            vehicleLicense: String; // Placa do veículo
+            ^identificationMethod: IdentificationMethodType; // Método de identificação (RFID ou ticket)
+            entryDate: Date; // Data de entrada do veículo
+            entryTime: Time; // Hora de entrada do veículo
+            exitDate: Date; // Data de saída do veículo
+            exitTime: Time; // Hora de saída do veículo
+    }
+
+    datatype VehiclePaymentRequest {
+        attributes:
+            vehicleLicense: String; // Placa do veículo associado ao pagamento
+            paymentAmount: Real; // Valor do pagamento solicitado
+    }
+
+    datatype VehicleExitRequest {
+        attributes:
+            vehicleLicense: String; // Placa do veículo que está saindo
+            exitDate: Date; // Data de saída do veículo
+            exitTime: Time; // Hora de saída do veículo
+    }
+
+    datatype PaymentInfo {
+        attributes:
+            vehicleLicense: String; // Placa do veículo associado ao pagamento
+            ^paid: PaymentConfirmation; // Indica se o pagamento foi efetuado
+            paymentAmount: Real; // Valor pago
+    }
+
+    datatype PaymentCalculation {
+        attributes:
+            vehicleLicense: String; // Placa do veículo
+            entryTime: Time; // Hora de entrada do veículo
+            exitTime: Time; // Hora de saída do veículo
+            parkingDuration: Real; // Duração da permanência em horas
+            ^tariffType: TariffType; // Tipo de tarifa aplicada
+            calculatedFee: Real; // Valor calculado para o pagamento
+    }
+
+    datatype PaymentMethod {
+        attributes:
+            ^methodType: PaymentMethodType; // Método de pagamento escolhido
+            isConfirmed: Boolean; // Indica se o pagamento foi confirmado
+    }
+
+    // Tipos para Requisitos Não Funcionais
+    datatype SystemRedundancy {
+        attributes:
+            componentName: String; // Nome do componente redundante
+            isActive: Boolean; // Indica se o componente redundante está ativo
+    }
+
+    datatype SecurityInfo {
+        attributes:
+            encryptedData: String; // Dados criptografados
+            ^complianceStatus: ComplianceStatus; // Status de conformidade com LGPD
+    }
+
+    datatype EnergyBackup {
+        attributes:
+            isAvailable: Boolean; // Indica se há backup de energia disponível
+            estimatedRuntime: Real; // Tempo estimado de funcionamento em horas
+    }
+
+    datatype HardwareUpdate {
+        attributes:
+            hardwareID: String; // Identificador do hardware
+            updateStatus: String; // Status da atualização do hardware
+            ^impactLevel: UpdateImpactLevel; // Impacto da atualização no sistema
+    }
+
+    datatype UserInterface {
+        attributes:
+            interfaceType: String; // Tipo de interface (usuário final ou administrador)
+            accessibilityFeatures: Boolean; // Indica se a interface tem recursos de acessibilidade
+            responseTime: Real; // Tempo médio de resposta em segundos
+    }
+
+    datatype RealTimeOperation {
+        attributes:
+            uptime: Real; // Tempo de operação contínua em horas
+            ^status: OperationStatus; // Status atual da operação
+    }
+}
+
+
+package ParkingConnectors {
+    import ParkingPorts;
+	
+	// Conector para Gerenciamento de Entrada de Veículos
+	connector def vehicleEntry {
+	    participants:
+	        ~inVehicleEntryPort: inVehicleEntry;          // Porta de entrada de informações do veículo
+	        ~outEntryConfirmationPort: outEntryConfirmation; // Porta de saída confirmando a entrada
+	    flows:
+	        VehicleRegistrationInfo from inVehicleEntryPort to outEntryConfirmationPort
+	}
+	
+	// Conector para Gerenciamento de Saída de Veículos
+	connector def vehicleExit {
+	    participants:
+	        ~inExitRequestPort: inExitRequest;            // Porta de entrada para solicitação de saída
+	        ~outExitConfirmationPort: outExitConfirmation; // Porta de saída confirmando a saída
+	    flows:
+	        VehicleExitRequest from inExitRequestPort to outExitConfirmationPort
+	}
+	
+	// Conector para Identificação de Veículos
+	connector def vehicleIdentification {
+	    participants:
+	        ~inVehicleIdentificationPort: inVehicleIdentification; // Porta de entrada para método de identificação
+	        ~outVehicleRegistrationPort: outVehicleRegistration;   // Porta de saída com dados do veículo
+	    flows:
+	        IdentificationMethodType from inVehicleIdentificationPort to outVehicleRegistrationPort
+	}
+	
+	// Conector para Solicitação e Status de Pagamento
+	connector def paymentRequest {
+	    participants:
+	        ~inPaymentRequestPort: inPaymentRequest;       // Porta de entrada para solicitação de pagamento
+	        ~outPaymentStatusPort: outPaymentStatus;       // Porta de saída com o status do pagamento
+	    flows:
+	        VehiclePaymentRequest from inPaymentRequestPort to outPaymentStatusPort
+	}
+	
+	// Conector para Informações de Pagamento
+	connector def paymentInfo {
+	    participants:
+	        ~inPaymentInfoPort: inPaymentInfo;             // Porta de entrada com informações de pagamento
+	        ~outPaymentInfoPort: outPaymentInfo;           // Porta de saída confirmando informações do pagamento
+	    flows:
+	        PaymentInfo from inPaymentInfoPort to outPaymentInfoPort
+	}
+	
+	// Conector para Métodos de Pagamento
+	connector def paymentMethod {
+	    participants:
+	        ~inPaymentMethodPort: inPaymentMethod;         // Porta de entrada para método de pagamento
+	        ~outPaymentConfirmationPort: outPaymentConfirmation; // Porta de saída confirmando o pagamento
+	    flows:
+	        PaymentMethod from inPaymentMethodPort to outPaymentConfirmationPort
+	}
+	
+	// Conector para Monitoramento por Câmeras
+	connector def cameraMonitoring {
+	    participants:
+	        ~inCameraMonitoringPort: inCameraMonitoring;   // Porta de entrada com dados das câmeras
+	        ~outCameraMonitoringPort: outCameraMonitoring; // Porta de saída confirmando os dados das câmeras
+	    flows:
+	        CameraParkingMonitoring from inCameraMonitoringPort to outCameraMonitoringPort
+	}
+	
+	// Conector para Contagem de Vagas
+	connector def parkingSpaceCount {
+	    participants:
+	        ~inParkingSpaceCountPort: inParkingSpaceCount; // Porta de entrada com a contagem de vagas
+	        ~outParkingSpaceCountPort: outParkingSpaceCount; // Porta de saída confirmando a contagem
+	    flows:
+	        ParkingSpaceCount from inParkingSpaceCountPort to outParkingSpaceCountPort
+	}
+	
+	// Conector para Atualizações do Sistema
+	connector def systemUpdate {
+	    participants:
+	        ~inSystemUpdatePort: inSystemUpdate;           // Porta de entrada para solicitação de atualização
+	        ~outUpdateStatusPort: outUpdateStatus;         // Porta de saída confirmando o status da atualização
+	    flows:
+	        HardwareUpdate from inSystemUpdatePort to outUpdateStatusPort
+	}
+	
+	// Conector para Resiliência e Redundância
+	connector def systemRedundancy {
+	    participants:
+	        ~inRedundancyStatusPort: inSystemRedundancyStatus; // Porta de entrada para monitoramento de redundância
+	        ~outRedundancyStatusPort: outSystemRedundancyStatus; // Porta de saída confirmando o status da redundância
+	    flows:
+	        SystemRedundancy from inRedundancyStatusPort to outRedundancyStatusPort
+	}
+	
+	// Conector para Operação em Tempo Real
+	connector def realTimeOperation {
+	    participants:
+	        ~inRealTimeOperationPort: inRealTimeOperation; // Porta de entrada com dados de operação contínua
+	        ~outRealTimeOperationPort: outRealTimeOperation; // Porta de saída confirmando dados de operação
+	    flows:
+	        RealTimeOperation from inRealTimeOperationPort to outRealTimeOperationPort
+	}
+	
+	// Conector para comandos de controle de cancela
+	connector def barrierControlCommand {
+	    participants:
+	        ~outBarrierControlCommand: outBarrierControlCommand;
+	        ~inBarrierControlCommand: inBarrierControlCommand;
+	    flows:
+	        BarrierControl from outBarrierControlCommand to inBarrierControlCommand
+	}
+	
+	// Conector para o status da cancela
+	connector def barrierControlStatus {
+	    participants:
+	        ~outBarrierStatus: outBarrierStatus;
+	        ~inBarrierStatus: inBarrierStatus;
+	    flows:
+	        BarrierStatus from outBarrierStatus to inBarrierStatus
+	}
+	
+	// Conector para enviar confirmação de saída ao ParkingSpaceManager
+	connector def exitConfirmation {
+	    participants:
+	        ~outExitConfirmation: outExitConfirmation;   // Do VehicleAccessManager
+	        ~inExitConfirmation: inExitConfirmation;     // Do ParkingSpaceManager
+	    flows:
+	        PaymentConfirmation from outExitConfirmation to inExitConfirmation
+	}
+	
+	// Conector para enviar confirmação de entrada ao ParkingSpaceManager
+	connector def entryConfirmation {
+	    participants:
+	        ~outEntryConfirmation: outEntryConfirmation; // Do VehicleAccessManager
+	        ~inEntryConfirmation: inEntryConfirmation;   // Do ParkingSpaceManager
+	    flows:
+	        VehicleRegistrationInfo from outEntryConfirmation to inEntryConfirmation
+	}
+
+connector def paymentStatus { participants : ~ inPaymentStatusPort : inPaymentStatus ; ~ outPaymentStatusPort : outPaymentStatus ; flows : PaymentConfirmation from outPaymentStatusPort to inPaymentStatusPort } }
+
+
+package ParkingComponents {
+    import ParkingPorts;
+    import SysADL.types;
+    import ParkingConnectors;
+
+    // Componente para Gerenciamento de Vagas
+    component def ParkingSpaceManager {
+        ports:
+            inSpaceCount: inParkingSpaceCount; // Porta para receber contagem de vagas
+            outSpaceCount: outParkingSpaceCount; 
+            inExitConfirmation : inExitConfirmation; // Porta para enviar contagem de vagas
+            inEntryConfirmation: inEntryConfirmation; // Porta para receber confirmação de entrada
+    configuration { components : CameraMonitor : CameraMonitor { using ports : inCameraMonitoring : inCameraMonitoring ; outCameraMonitoring : outCameraMonitoring ; } DisplayCounter : DisplayCounter { using ports : inDisplayCounter : inDisplayCounter ; outDisplayCounter : outDisplayCounter ; } connectors : cameraInfos : cameraMonitoring bindings outCameraMonitoring = inDisplayCounter ; } }
+
+    // Componente para Controle de Entrada e Saída de Veículos
+    component def VehicleAccessManager {
+	    ports:
+	        inVehicleEntry: inVehicleEntry;
+	        outEntryConfirmation: outEntryConfirmation;
+	        inExitRequest: inExitRequest;
+	        outExitConfirmation: outExitConfirmation;
+	        outBarrierControlCommand: outBarrierControlCommand; // Porta para enviar comandos à cancela
+	        inBarrierStatus: inBarrierStatus; // Porta para receber o status da cancela
+	}
+
+    // Componente para Identificação de Veículos
+    component def VehicleIdentification {
+        ports:
+            inVehicleIdentification: inVehicleIdentification; // Porta para método de identificação
+            outVehicleRegistration: outVehicleRegistration; // Porta para registro de veículos
+    }
+
+    // Componente para Processamento de Pagamentos
+    component def PaymentProcessorManager {
+        ports:
+            inPaymentRequest: inPaymentRequest; // Porta para receber solicitações de pagamento
+            outPaymentConfirmation: outPaymentConfirmation; // Porta para confirmar pagamento realizado
+    outPaymentInfo : outPaymentInfo ; configuration { components :  PaymentEquipment : PaymentEquipment { using ports : inPaymentInfoEquip : inPaymentInfo ; outPaymentIStatusEquip : outPaymentStatus ; inPaymentMethodEquip : inPaymentMethod ; } PaymentProcessor : PaymentProcessor { using ports : inPaymentRequest : inPaymentRequest ; outPaymentConfirmation : outPaymentConfirmation ; inPaymentInfo : inPaymentInfo ; outPaymentInfo : outPaymentInfo ; inPaymentMethod : inPaymentMethod ; outPaymentStatus : outPaymentStatus ; inVehicleIdentification : inVehicleIdentification ; outPaymentMethod : outPaymentStatus ; inPaymentSatus : inPaymentStatus ; } VehicleIdentification : VehicleIdentification { using ports : inVehicleIdentification : inVehicleIdentification ; outVehicleRegistration : outVehicleRegistration ; } connectors : VehicleIdentificationConnector : vehicleIdentification bindings outVehicleRegistration = inVehicleIdentification ; PaymentInfoConnector : paymentInfo bindings outPaymentInfo = inPaymentInfoEquip ; PaymentMethodConnector : paymentMethod bindings outPaymentMethod = inPaymentMethodEquip ; PaymentStatusConnector : paymentStatus bindings outPaymentIStatusEquip = inPaymentSatus ; } }
+
+    // Componente para Controle de Cancelas
+    component def BarrierController {
+	    ports:
+	        inBarrierControlCommand: inBarrierControlCommand; // Porta para receber comandos de controle
+	        outBarrierStatus: outBarrierStatus; // Porta para enviar o status atual da cancela
+	}
+
+    // Componente para Monitoramento por Câmeras
+    component def CameraMonitor {
+        ports:
+            inCameraMonitoring: inCameraMonitoring; // Porta para receber dados de câmeras
+            outCameraMonitoring: outCameraMonitoring; // Porta para enviar dados processados
+    }
+
+    // Componente para Redundância e Atualizações
+    component def SystemMaintenance {
+        ports:
+            inSystemUpdate: inSystemUpdate; // Porta para solicitações de atualização
+            outUpdateStatus: outUpdateStatus; // Porta para enviar status da atualização
+            inRedundancyStatus: inSystemRedundancyStatus; // Porta para monitorar redundância
+            outRedundancyStatus: outSystemRedundancyStatus; // Porta para confirmar redundância
+    }
+
+    // Componente para Operação em Tempo Real
+    component def RealTimeOperationHandler {
+        ports:
+            inRealTimeOperation: inRealTimeOperation; // Porta para receber dados de operação
+            outRealTimeOperation: outRealTimeOperation; // Porta para enviar status de operação
+    }
+    
+    component def PaymentProcessor {
+	    ports:
+	        inPaymentRequest: inPaymentRequest;
+	        outPaymentConfirmation: outPaymentConfirmation;
+	        inPaymentInfo: inPaymentInfo;
+	        outPaymentInfo: outPaymentInfo;
+	        inPaymentMethod: inPaymentMethod;
+	        outPaymentStatus: outPaymentStatus;
+	        inVehicleIdentification: inVehicleIdentification;
+	        outVehicleRegistration: outVehicleRegistration;
+	}
+    
+	component def ParkingSystemManagement {
+    configuration {
+        components:
+           
+
+            // Gerenciamento de Entrada e Saída de Veículos
+            VehicleAccessManager: VehicleAccessManager {
+                using ports:
+                    inVehicleEntry: inVehicleEntry;
+                    outEntryConfirmation: outEntryConfirmation;
+                    inExitRequest: inExitRequest;
+                    outExitConfirmation: outExitConfirmation;
+                    outBarrierControlCommand: outBarrierControlCommand;
+                    inBarrierStatus: inBarrierStatus;
+            }
+
+            // Identificação de Veículos
+            VehicleIdentification: VehicleIdentification {
+                using ports:
+                    inVehicleIdentification: inVehicleIdentification;
+                    
+            }
+
+            // Processamento de Pagamentos
+            PaymentProcessor: PaymentProcessorManager {
+                using ports:
+                    inPaymentRequest: inPaymentRequest;
+                    
+                    
+                    
+                    
+                    outPaymentConfirmation: outPaymentConfirmation;
+            }
+
+            // Controle de Cancelas
+            BarrierController: BarrierController {
+                using ports:
+                    inBarrierControlCommand: inBarrierControlCommand;
+                    outBarrierStatus: outBarrierStatus;
+            }
+
+            
+
+         ParkingSpaceManager : ParkingSpaceManager { using ports : inSpaceCount : inParkingSpaceCount ; outSpaceCount : outParkingSpaceCount ; inExitConfirmation : inExitConfirmation ; inEntryConfirmation : inEntryConfirmation ; } connectors :
+			 // Conexão para registro de entrada de veículos
+            VehicleEntryConnector: vehicleEntry bindings 
+                outEntryConfirmation = inVehicleIdentification;
+
+            
+
+            // Conexão para processamento de pagamento e saída de veículos
+            PaymentProcessingConnector: paymentRequest bindings 
+                outPaymentConfirmation = inExitRequest;
+
+            // Conexão para controle de cancelas (comando de abertura/fechamento)
+            BarrierControlCommandConnector: barrierControlCommand bindings
+                outBarrierControlCommand = inBarrierControlCommand;
+
+            // Conexão para status da cancela do BarrierController para o VehicleAccessManager
+            BarrierStatusConnector: barrierControlStatus bindings
+                outBarrierStatus = inBarrierStatus;
+
+            // Conexão para confirmação de saída ao ParkingSpaceManager
+            ExitConfirmationConnector: exitConfirmation bindings
+                outExitConfirmation = inExitConfirmation;
+         EntryConfirmationConnector : entryConfirmation bindings outEntryConfirmation = inEntryConfirmation ; }
+    }
+	component def DisplayCounter { ports : inDisplayCounter : inDisplayCounter ; outDisplayCounter : outDisplayCounter ; }
+	component def PaymentEquipment { ports : inPaymentInfoEquip : inPaymentInfo ; outPaymentInfoEquip : outPaymentConfirmation ; inPaymentMethodEquip : inPaymentMethod ; } }
+
+
+
+package ParkingPorts {
+	import SysADL.types;
+
+	// Portas para Gerenciamento de Veículos
+	port def inVehicleEntry {
+	    flow in VehicleRegistrationInfo // Fluxo de entrada para informações do veículo que está entrando
+	}
+	
+	port def outEntryConfirmation {
+	    flow out VehicleRegistrationInfo // Fluxo de saída confirmando a entrada do veículo
+	}
+	
+	port def inExitRequest {
+	    flow in VehicleExitRequest // Fluxo de entrada para solicitação de saída do veículo
+	}
+	
+	port def outExitConfirmation {
+	    flow out PaymentConfirmation // Fluxo de saída confirmando a saída do veículo
+	}
+	
+	port def inVehicleIdentification {
+	    flow in IdentificationMethodType // Fluxo de entrada para método de identificação
+	}
+	
+	port def outVehicleRegistration {
+	    flow out VehicleRegistrationInfo // Fluxo de saída com informações registradas do veículo
+	}
+	
+	// Portas para Pagamento
+	port def inPaymentRequest {
+	    flow in VehiclePaymentRequest // Fluxo de entrada para solicitação de pagamento
+	}
+	
+	port def outPaymentStatus {
+	    flow out PaymentConfirmation // Fluxo de saída com o status do pagamento
+	}
+	
+	port def inPaymentInfo {
+	    flow in PaymentInfo // Fluxo de entrada com as informações do pagamento
+	}
+	
+	port def outPaymentInfo {
+	    flow out PaymentInfo // Fluxo de saída confirmando as informações do pagamento
+	}
+	
+	port def inPaymentMethod {
+	    flow in PaymentMethod // Fluxo de entrada para o método de pagamento escolhido
+	}
+	
+	port def outPaymentConfirmation {
+	    flow out PaymentConfirmation // Fluxo de saída confirmando que o pagamento foi realizado
+	}
+	
+	// Portas para Contagem de Vagas
+	port def inParkingSpaceCount {
+	    flow in ParkingSpaceCount[] // Fluxo de entrada com a contagem de vagas por tipo
+	}
+	
+	port def outParkingSpaceCount {
+	    flow out ParkingSpaceCount[] // Fluxo de saída com a contagem de vagas por tipo
+	}
+	
+	// Portas para Monitoramento por Câmeras
+	port def inCameraMonitoring {
+	    flow in CameraParkingMonitoring // Fluxo de entrada com os dados das câmeras
+	}
+	
+	port def outCameraMonitoring {
+	    flow out CameraParkingMonitoring // Fluxo de saída com os dados das câmeras
+	}
+	
+	// Portas para Backup e Atualizações
+	port def inSystemUpdate {
+	    flow in HardwareUpdate // Fluxo de entrada para solicitação de atualização do sistema
+	}
+	
+	port def outUpdateStatus {
+	    flow out HardwareUpdate // Fluxo de saída com o status da atualização
+	}
+	
+	// Portas para Resiliência e Redundância
+	port def inSystemRedundancyStatus {
+	    flow in SystemRedundancy // Fluxo de entrada para monitorar redundância do sistema
+	}
+	
+	port def outSystemRedundancyStatus {
+	    flow out SystemRedundancy // Fluxo de saída confirmando o status da redundância
+	}
+	
+	// Portas para Operação em Tempo Real
+	port def inRealTimeOperation {
+	    flow in RealTimeOperation // Fluxo de entrada com dados de operação contínua
+	}
+	
+	port def outRealTimeOperation {
+	    flow out RealTimeOperation // Fluxo de saída confirmando os dados de operação contínua
+	}
+	
+	// Porta para enviar comandos de controle de barreira do VehicleAccessManager
+	port def outBarrierControlCommand {
+	    flow out BarrierControl // Fluxo de saída com comandos de controle da cancela
+	}
+	
+	// Porta para receber comandos de controle no BarrierController
+	port def inBarrierControlCommand {
+	    flow in BarrierControl // Fluxo de entrada com comandos de controle da cancela
+	}
+	
+	// Porta para receber confirmação de entrada no ParkingSpaceManager
+	port def inEntryConfirmation {
+	    flow in VehicleRegistrationInfo // Fluxo de entrada confirmando a entrada do veículo
+	}
+	
+	// Porta para receber confirmação de saída no ParkingSpaceManager
+	port def inExitConfirmation {
+	    flow in PaymentConfirmation // Fluxo de entrada confirmando a saída do veículo
+	}
+	
+	// Porta para saída do status atual da cancela
+	port def outBarrierStatus {
+	    flow out BarrierStatus // Fluxo de saída com o status da cancela
+	}
+	
+	// Porta para entrada do status da cancela
+	port def inBarrierStatus {
+	    flow in BarrierStatus // Fluxo de entrada com o status da cancela
+	}
+	
+	// Portas para o DisplayCounter
+	port def inDisplayCounter {
+	    flow in CameraParkingMonitoring
+	}
+	
+	port def outDisplayCounter {
+	    flow out UserInterface
+	}
+port def outPaymentMethod { flow out PaymentMethod } port def inPaymentStatus { flow in PaymentConfirmation } }
+
+Requirement GeneralSystemRequirementRF (1) {
+    text = "O sistema deve fornecer funcionalidades para gerenciar o estacionamento de forma eficiente e automatizada." Requirement MonitorParkingSpacesRF (1.1) { 
+    text = "O sistema deve monitorar vagas em tempo real, exibindo a quantidade disponível e suas localizações." satisfied by ParkingComponents.CameraMonitor , ParkingComponents.ParkingSpaceManager ; }
+    Requirement AccessControlRF (1.2) { 
+    text = "O sistema deve controlar a entrada e saída de veículos de forma automática." 
+    satisfied by ParkingComponents.VehicleAccessManager;}
+    Requirement AssociateVehicleRF (1.3) { 
+    text = "O sistema deve associar o veículo ao condutor autorizado para evitar retiradas não autorizadas." 
+    satisfied by ParkingComponents.VehicleIdentification; }
+    Requirement CalculateParkingFeeRF (1.4) { 
+    text = "O sistema deve calcular o valor do estacionamento com base no tempo de permanência." 
+    satisfied by ParkingComponents.PaymentProcessor; }
+    Requirement PaymentMethodsRF (1.5) { 
+    text = "O sistema deve oferecer múltiplas formas de pagamento para os usuários." 
+    satisfied by ParkingComponents.PaymentProcessor;}
+    Requirement ContinuousOperationRF (1.6) { 
+    text = "O sistema deve operar continuamente, 24 horas por dia, 7 dias por semana, sem interrupções." satisfied by ParkingComponents.RealTimeOperationHandler ; } }
+
+Requirement DisplayLocationRF (1.1.1) { 
+    text = "O sistema deve exibir a localização exata de cada vaga disponível." 
+    derive GeneralSystemRequirementRF.MonitorParkingSpacesRF;}
+
+Requirement ClassifyParkingSpacesRF (1.1.2) { 
+    text = "O sistema deve identificar se as vagas são cobertas, descobertas ou acessíveis." 
+    derive GeneralSystemRequirementRF.MonitorParkingSpacesRF;}
+
+Requirement AutomaticAccessRF (1.2.1) { 
+    text = "O sistema deve liberar o acesso usando cartões RFID ou tickets." 
+    satisfied by ParkingComponents.BarrierController ; derive AccessControlRF , GeneralSystemRequirementRF.AccessControlRF ; }
+
+Requirement ManualAccessControlRF (1.2.2) { 
+    text = "O sistema deve permitir controle manual em situações de emergência." 
+    derive AccessControlRF , GeneralSystemRequirementRF.AccessControlRF ; }
+
+Requirement EnsureAuthorizedRemovalRF (1.3.1) { 
+    text = "O sistema deve garantir que apenas o condutor autorizado possa retirar o veículo." 
+    derive AssociateVehicleRF , GeneralSystemRequirementRF.AssociateVehicleRF ; }
+
+Requirement SpecialAuthorizationRF (1.3.2) { 
+    text = "O sistema deve permitir autorização especial para retirada do veículo por terceiros." 
+    derive AssociateVehicleRF , GeneralSystemRequirementRF.AssociateVehicleRF ; }
+
+Requirement TimeBasedCalculationRF (1.4.1) { 
+    text = "O sistema deve basear o cálculo das tarifas no tempo de permanência do veículo." 
+    derive CalculateParkingFeeRF , GeneralSystemRequirementRF.CalculateParkingFeeRF ; }
+
+Requirement VariableFeesRF (1.4.2) { 
+    text = "O sistema deve permitir variações de tarifa de acordo com o tipo de vaga e horário." 
+    derive CalculateParkingFeeRF , GeneralSystemRequirementRF.CalculateParkingFeeRF ; }
+
+Requirement DigitalPaymentRF (1.5.1) { 
+    text = "O sistema deve permitir pagamento via aplicativo ou máquinas automáticas." 
+    derive PaymentMethodsRF , GeneralSystemRequirementRF.PaymentMethodsRF ; }
+
+Requirement AcceptedPaymentMethodsRF (1.5.2) { 
+    text = "O sistema deve aceitar dinheiro, cartões de débito/crédito e PIX." 
+    derive PaymentMethodsRF , GeneralSystemRequirementRF.PaymentMethodsRF ; }
+
+Requirement SystemQualityRequirementRNF (2) { 
+    text = "O sistema deve atender requisitos de qualidade, como confiabilidade, segurança, desempenho e conformidade." Requirement RedundancyAndBackupRNF (2.1) { 
+    text = "O sistema deve implementar redundância em componentes críticos e backup de energia." satisfied by ParkingComponents.SystemMaintenance; } Requirement DataSecurityRNF (2.2) { 
+    text = "O sistema deve proteger os dados dos usuários com criptografia e estar em conformidade com a LGPD." satisfied by ParkingComponents.CameraMonitor ; } Requirement RestrictedAccessRNF (2.3) { 
+    text = "O sistema deve garantir acesso restrito a dados sensíveis." satisfied by ParkingComponents.CameraMonitor ; } }
